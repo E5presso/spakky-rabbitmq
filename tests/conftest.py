@@ -1,11 +1,8 @@
 import logging
-from time import sleep
 from typing import Any, Generator
 from logging import Logger, Formatter, StreamHandler, getLogger
 
 import pytest
-from docker import DockerClient, from_env
-from docker.models.containers import Container
 from spakky.application.application_context import ApplicationContext
 from spakky.plugins.aspect import AspectPlugin
 from spakky.plugins.logging import LoggingPlugin
@@ -28,28 +25,6 @@ def get_config_fixture() -> Generator[RabbitMQConnectionConfig, Any, None]:
         exchange_name=None,
     )
     yield config
-
-
-@pytest.fixture(scope="session", autouse=True)
-def boot_docker_fixture(config: RabbitMQConnectionConfig) -> Generator[None, Any, None]:
-    client: DockerClient = from_env()
-    container: Container = client.containers.run(
-        image="rabbitmq:management",
-        name="rabbitmq",
-        detach=True,
-        ports={
-            "5672": config.port,
-            "15672": 15672,
-        },
-        environment={
-            "RABBITMQ_DEFAULT_USER": config.user,
-            "RABBITMQ_DEFAULT_PASS": config.password,
-        },
-    )
-    sleep(5)
-    yield
-    container.stop()
-    container.remove()
 
 
 @pytest.fixture(name="logger", scope="session")
