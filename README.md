@@ -1,6 +1,6 @@
 <h1 align="center">Spakky RabbitMQ</h1>
 <p align="center">
-    <em>RabbitMQ-CLI Plugin for Spakky Framework</em>
+    <em>RabbitMQ Plugin for Spakky Framework</em>
 </p>
 <p align="center">
     <a href="https://pypi.org/project/spakky-rabbitmq">
