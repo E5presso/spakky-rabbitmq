@@ -110,6 +110,7 @@ class AsyncRabbitMQEventConsumer(IAsyncEventConsumer, IAsyncManagedThreadAction)
             channel = await connection.channel()
             for event_type in self.handlers:
                 queue = await channel.declare_queue(event_type.__name__)  # type: ignore
+                # pylint: disable=line-too-long
                 consumer_tag = await queue.consume(self._route_event_handler)  # type: ignore
                 self.type_lookup[consumer_tag] = event_type
             await event.wait()
