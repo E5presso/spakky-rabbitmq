@@ -25,6 +25,8 @@ jobs:
       uses: actions/setup-python@master
       with:
         python-version: ${{ env.PYTHON }}
+    - name: Install Test Environments for CI
+      run: docker compose -f docker-compose.ci.yml up -d
     - name: Setup Poetry
       uses: abatilo/actions-poetry@v3
       with:
