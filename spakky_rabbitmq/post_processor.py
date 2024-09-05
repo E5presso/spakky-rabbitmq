@@ -26,6 +26,7 @@ class RabbitMQPostProcessor(IPodPostProcessor):
             route: EventRoute[DomainEvent] | None = EventRoute.get_or_none(method)
             if route is None:
                 continue
+            # pylint: disable=line-too-long
             self.__logger.info(
                 f"[{type(self).__name__}] {route.event_type.__name__} -> {method.__qualname__}"
             )
