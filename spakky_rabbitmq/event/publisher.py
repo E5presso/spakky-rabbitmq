@@ -1,5 +1,5 @@
-import jsons
 from aio_pika import Message, connect_robust
+from jsons import dumps  # type: ignore
 from pika import BlockingConnection, URLParameters
 from spakky.domain.models.event import DomainEvent
 from spakky.domain.ports.event.event_publisher import (
@@ -29,7 +29,7 @@ class RabbitMQEventPublisher(IEventPublisher):
         channel.basic_publish(
             self.exchange_name if self.exchange_name is not None else "",
             event.event_name,
-            jsons.dumps(event).encode(),  # type: ignore
+            dumps(event).encode(),
         )
         channel.close()
         connection.close()
@@ -56,7 +56,7 @@ class AsyncRabbitMQEventPublisher(IAsyncEventPublisher):
             if self.exchange_name is not None:
                 await queue.bind(exchange, event.event_name)
             await exchange.publish(
-                Message(body=jsons.dumps(event).encode()),  # type: ignore
+                Message(body=dumps(event).encode()),
                 routing_key=event.event_name,
             )
             await channel.close()
