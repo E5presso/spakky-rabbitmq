@@ -2,9 +2,9 @@ from typing import Any
 from asyncio import Lock as AsyncLock, Event as AsyncEvent
 from threading import Lock as ThreadLock, Event as ThreadEvent
 
-import jsons
 from aio_pika import connect_robust
-from aio_pika.message import AbstractIncomingMessage
+from aio_pika.abc import AbstractIncomingMessage
+from jsons import loads  # type: ignore
 from pika import URLParameters
 from pika.adapters.blocking_connection import BlockingChannel, BlockingConnection
 from pika.spec import Basic, BasicProperties
@@ -43,7 +43,7 @@ class RabbitMQEventConsumer(IEventConsumer, IManagedThreadAction):
         assert method_frame.consumer_tag is not None
         event_type = self.type_lookup[method_frame.consumer_tag]
         handler = self.handlers[event_type]
-        event = jsons.loads(body.decode(), event_type)  # type: ignore
+        event = loads(body.decode(), event_type)
         handler(event)
         channel.basic_ack(method_frame.delivery_tag)
 
@@ -94,7 +94,7 @@ class AsyncRabbitMQEventConsumer(IAsyncEventConsumer, IAsyncManagedThreadAction)
         assert message.consumer_tag is not None
         event_type = self.type_lookup[message.consumer_tag]
         handler = self.handlers[event_type]
-        event = jsons.loads(message.body.decode(), event_type)  # type: ignore
+        event = loads(message.body.decode(), event_type)
         await handler(event)
         await message.ack()
 
