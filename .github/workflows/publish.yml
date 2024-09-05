@@ -1,0 +1,33 @@
+name: Publish
+
+on:
+  release:
+    types:
+      - created
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      OS: ubuntu-latest
+      PYTHON: "3.10"
+      POETRY: "1.8.3"
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Python
+      uses: actions/setup-python@master
+      with:
+        python-version: ${{ env.PYTHON }}
+    - name: Setup Poetry
+      uses: abatilo/actions-poetry@v3
+      with:
+        poetry-version: ${{ env.POETRY }}
+    - name: Install Dependencies
+      run: poetry install
+    - name: Publish
+      env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+      run: poetry publish --build
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
