@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spakky-rabbitmq"
-version = "0.2.1"
+version = "0.2.2"
 description = "Highly abstracted Framework core to use DDD & DI/IoC & AOP & Etc..."
 authors = ["Spakky <sejong418@icloud.com>"]
 readme = "README.md"
@@ -26,8 +26,8 @@ pytest-cov = "^4.1.0"
 pytest-asyncio = "^0.21.1"
 pydantic = "^2.8.2"
 pydantic-settings = "^2.4.0"
-
 toml = "^0.10.2"
+
 [tool.poetry.group.ci.dependencies]
 pylint = "^3.0.2"
 pytest = "^7.4.3"
