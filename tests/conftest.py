@@ -68,7 +68,7 @@ def get_application_context_fixture(
     yield context
 
 
-@pytest.fixture(name="managed_thread", scope="function")
+@pytest.fixture(name="managed_thread", scope="function", autouse=True)
 def get_managed_thread_fixture(
     context: ApplicationContext,
 ) -> Generator[ManagedThread, Any, None]:
@@ -76,11 +76,12 @@ def get_managed_thread_fixture(
         context.get(IManagedThreadAction),
         "RabbitMQ Sync Thread",
     )
+    thread.start()
     yield thread
     thread.stop()
 
 
-@pytest.fixture(name="async_managed_thread", scope="function")
+@pytest.fixture(name="async_managed_thread", scope="function", autouse=True)
 def get_async_managed_thread_fixture(
     context: ApplicationContext,
 ) -> Generator[AsyncManagedThread, Any, None]:
@@ -88,5 +89,6 @@ def get_async_managed_thread_fixture(
         context.get(IAsyncManagedThreadAction),
         "RabbitMQ Async Thread",
     )
+    thread.start()
     yield thread
     thread.stop()
