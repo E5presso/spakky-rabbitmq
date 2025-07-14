@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        PYTHON: ["3.10", "3.11", "3.12"]
+        PYTHON: ["3.10", "3.11", "3.12", "3.13"]
     env:
       OS: ubuntu-latest
       PYTHON: "${{ matrix.PYTHON }}"
-      POETRY: "1.8.3"
+      POETRY: "2.1.1"
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
     - name: Checkout Branch
@@ -24,8 +24,6 @@ jobs:
       uses: actions/setup-python@master
       with:
         python-version: ${{ env.PYTHON }}
-    - name: Install Test Environments for CI
-      run: docker compose -f docker-compose.ci.yml up -d
     - name: Setup Poetry
       uses: abatilo/actions-poetry@v3
       with:
@@ -33,7 +31,7 @@ jobs:
     - name: Install Dependencies
       run: poetry install --with ci
     - name: Run Linting
-      run: poetry run pylint $(git ls-files '**/*.py')
+      run: poetry run ruff check --output-format=github .
     - name: Run Test Suite
       run: poetry run pytest
     - name: Upload coverage to Codecov
