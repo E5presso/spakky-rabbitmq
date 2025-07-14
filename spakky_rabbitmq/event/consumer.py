@@ -1,14 +1,12 @@
 from typing import Any
-from asyncio import Lock as AsyncLock, Event as AsyncEvent
-from threading import Lock as ThreadLock, Event as ThreadEvent
 
-from aio_pika import connect_robust
-from aio_pika.abc import AbstractIncomingMessage
+from aio_pika import connect_robust  # type: ignore
+from aio_pika.abc import AbstractIncomingMessage, AbstractRobustConnection
 from jsons import loads  # type: ignore
 from pika import URLParameters
 from pika.adapters.blocking_connection import BlockingChannel, BlockingConnection
 from pika.spec import Basic, BasicProperties
-from spakky.domain.models.event import DomainEvent
+from spakky.domain.models.event import AbstractDomainEvent
 from spakky.domain.ports.event.event_consumer import (
     DomainEventT,
     IAsyncEventConsumer,
@@ -16,18 +14,25 @@ from spakky.domain.ports.event.event_consumer import (
     IEventConsumer,
     IEventHandlerCallback,
 )
-from spakky.pod.pod import Pod
-from spakky.threading.interface import IAsyncManagedThreadAction, IManagedThreadAction
+from spakky.pod.annotations.pod import Pod
+from spakky.service.background import (
+    AbstractAsyncBackgroundService,
+    AbstractBackgroundService,
+)
+
 from spakky_rabbitmq.event.config import RabbitMQConnectionConfig
 
 
 @Pod()
-class RabbitMQEventConsumer(IEventConsumer, IManagedThreadAction):
+class RabbitMQEventConsumer(IEventConsumer, AbstractBackgroundService):
     connection_string: str
-    type_lookup: dict[str, type[DomainEvent]]
-    handlers: dict[type[DomainEvent], IEventHandlerCallback[Any]]
+    type_lookup: dict[str, type[AbstractDomainEvent]]
+    handlers: dict[type[AbstractDomainEvent], IEventHandlerCallback[Any]]
+    connection: BlockingConnection
+    channel: BlockingChannel
 
     def __init__(self, config: RabbitMQConnectionConfig) -> None:
+        super().__init__()
         self.connection_string = config.connection_string
         self.type_lookup = {}
         self.handlers = {}
@@ -47,6 +52,11 @@ class RabbitMQEventConsumer(IEventConsumer, IManagedThreadAction):
         handler(event)
         channel.basic_ack(method_frame.delivery_tag)
 
+    def _check_if_event_set(self) -> None:
+        if self._stop_event.is_set():
+            self.channel.stop_consuming()
+        self.connection.add_callback_threadsafe(self._check_if_event_set)
+
     def register(
         self,
         event: type[DomainEventT],
@@ -54,35 +64,36 @@ class RabbitMQEventConsumer(IEventConsumer, IManagedThreadAction):
     ) -> None:
         self.handlers[event] = handler
 
-    def __call__(self, event: ThreadEvent, lock: ThreadLock) -> None:
-        connection = BlockingConnection(parameters=URLParameters(self.connection_string))
-        channel = connection.channel()
+    def initialize(self) -> None:
+        self.connection = BlockingConnection(
+            parameters=URLParameters(self.connection_string)
+        )
+        self.channel = self.connection.channel()
 
         for event_type in self.handlers:
-            channel.queue_declare(event_type.__name__)
-            consumer_tag = channel.basic_consume(
+            self.channel.queue_declare(event_type.__name__)
+            consumer_tag = self.channel.basic_consume(
                 event_type.__name__,
                 self._route_event_handler,
             )
             self.type_lookup[consumer_tag] = event_type
 
-        def stop() -> None:
-            if event.is_set():
-                channel.stop_consuming()
-                channel.close()
-                connection.close()
-                return
-            connection.add_callback_threadsafe(stop)
+    def dispose(self) -> None:
+        self.channel.close()
+        self.connection.close()
+        return
 
-        connection.add_callback_threadsafe(stop)
-        channel.start_consuming()
+    def run(self) -> None:
+        self.connection.add_callback_threadsafe(self._check_if_event_set)
+        self.channel.start_consuming()
 
 
 @Pod()
-class AsyncRabbitMQEventConsumer(IAsyncEventConsumer, IAsyncManagedThreadAction):
+class AsyncRabbitMQEventConsumer(IAsyncEventConsumer, AbstractAsyncBackgroundService):
     connection_string: str
-    type_lookup: dict[str, type[DomainEvent]]
-    handlers: dict[type[DomainEvent], IAsyncEventHandlerCallback[Any]]
+    type_lookup: dict[str, type[AbstractDomainEvent]]
+    handlers: dict[type[AbstractDomainEvent], IAsyncEventHandlerCallback[Any]]
+    connection: AbstractRobustConnection
 
     def __init__(self, config: RabbitMQConnectionConfig) -> None:
         self.connection_string = config.connection_string
@@ -105,13 +116,19 @@ class AsyncRabbitMQEventConsumer(IAsyncEventConsumer, IAsyncManagedThreadAction)
     ) -> None:
         self.handlers[event] = handler
 
-    async def __call__(self, event: AsyncEvent, lock: AsyncLock) -> None:
-        async with await connect_robust(self.connection_string) as connection:
-            channel = await connection.channel()
-            for event_type in self.handlers:
-                queue = await channel.declare_queue(event_type.__name__)  # type: ignore
-                # pylint: disable=line-too-long
-                consumer_tag = await queue.consume(self._route_event_handler)  # type: ignore
-                self.type_lookup[consumer_tag] = event_type
-            await event.wait()
+    async def initialize_async(self) -> None:
+        self.connection = await connect_robust(self.connection_string)
+        self.channel = await self.connection.channel()
+
+        for event_type in self.handlers:
+            queue = await self.channel.declare_queue(event_type.__name__)
+            consumer_tag = await queue.consume(self._route_event_handler)
+            self.type_lookup[consumer_tag] = event_type
+
+    async def dispose_async(self) -> None:
+        await self.channel.close()
+        await self.connection.close()
         return
+
+    async def run_async(self) -> None:
+        await self._stop_event.wait()

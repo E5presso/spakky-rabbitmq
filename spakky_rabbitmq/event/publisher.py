@@ -1,12 +1,13 @@
-from aio_pika import Message, connect_robust
+from aio_pika import Message, connect_robust  # type: ignore
 from jsons import dumps  # type: ignore
 from pika import BlockingConnection, URLParameters
-from spakky.domain.models.event import DomainEvent
+from spakky.domain.models.event import AbstractDomainEvent
 from spakky.domain.ports.event.event_publisher import (
     IAsyncEventPublisher,
     IEventPublisher,
 )
-from spakky.pod.pod import Pod
+from spakky.pod.annotations.pod import Pod
+
 from spakky_rabbitmq.event.config import RabbitMQConnectionConfig
 
 
@@ -19,7 +20,7 @@ class RabbitMQEventPublisher(IEventPublisher):
         self.connection_string = config.connection_string
         self.exchange_name = config.exchange_name
 
-    def publish(self, event: DomainEvent) -> None:
+    def publish(self, event: AbstractDomainEvent) -> None:
         connection = BlockingConnection(URLParameters(self.connection_string))
         channel = connection.channel()
         channel.queue_declare(event.event_name)
@@ -44,7 +45,7 @@ class AsyncRabbitMQEventPublisher(IAsyncEventPublisher):
         self.connection_string = config.connection_string
         self.exchange_name = config.exchange_name
 
-    async def publish(self, event: DomainEvent) -> None:
+    async def publish(self, event: AbstractDomainEvent) -> None:
         async with await connect_robust(self.connection_string) as connection:
             channel = await connection.channel()
             exchange = (

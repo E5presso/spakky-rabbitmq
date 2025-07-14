@@ -1,10 +1,10 @@
 from spakky.core.mutability import immutable
-from spakky.domain.models.event import DomainEvent
+from spakky.domain.models.event import AbstractDomainEvent
 from spakky.stereotype.event_handler import EventHandler, on_event
 
 
 @immutable
-class SampleEvent(DomainEvent):
+class SampleEvent(AbstractDomainEvent):
     message: str
 
 
